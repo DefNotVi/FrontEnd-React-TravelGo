@@ -1,18 +1,23 @@
 import { Navbar, Container, Nav, Badge } from 'react-bootstrap';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useCart } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext'; 
 
 function NavBar(){
     const { cartCount } = useCart();
     const { user, isLoggedIn, logout } = useAuth(); // Obtener el estado y la función logout
+    const location = useLocation(); // Obtener el objeto de ubicación actual
 
-    // 1. Si el usuario NO está logueado, no mostramos el Navbar.
-    if (!isLoggedIn) {
+    const loginPath = '/cliente'; // Define la ruta de tu componente de login
+
+
+
+    //  Si el usuario NO está logueado, no mostramos el Navbar.
+    if (!isLoggedIn|| location.pathname === loginPath) {
         return null;
     }
 
-    // 2. Si el usuario SÍ está logueado, mostramos el Navbar.
+    //  Si el usuario SÍ está logueado, mostramos el Navbar.
     return (
         <Navbar bg="light" expand="md" className="mb-3 border-bottom">
         <Container>
@@ -28,7 +33,7 @@ function NavBar(){
             
             {/* Links de Usuario y Carrito */}
             <Nav>
-                {/* Saludo al usuario (Opcional, pero útil) */}
+                {/* Saludo al usuario */}
                 <Nav.Link disabled>
                     Bienvenido, {user?.name || 'Cliente'}
                 </Nav.Link>

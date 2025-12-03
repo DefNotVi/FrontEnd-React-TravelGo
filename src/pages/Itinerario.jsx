@@ -1,83 +1,190 @@
 import { useParams, Link } from 'react-router-dom';
-import { Container, Card, ListGroup, Button, Row, Col } from 'react-bootstrap';
-import { TRAVELING_DESTINATION } from '../data/Travel.mock';
+import { Container, Card, Button, Row, Col, Spinner, Alert } from 'react-bootstrap';
+import { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+// 💡 Importar el hook de carrito para la funcionalidad
+import { useCart } from '../context/AppContext'; 
 
-// Componente de la página de itinerario
+// URL base de tu API (Asegúrate de que esta URL sea correcta)
+const API_BASE_URL = 'http://localhost:8081/api'; 
+
+// --- Función Auxiliar para Iconos (Mejora la legibilidad) ---
+const ActivityItem = ({ actividad }) => (
+    <div className="d-flex align-items-center mb-2">
+        {/* Usamos un icono de lista/actividad */}
+        <i className="bi bi-geo-alt-fill text-primary me-2"></i> 
+        <p className="mb-0">{actividad}</p>
+    </div>
+);
+
 export default function Itinerario() {
-    // Obtener el parámetro 'id' de la URL
     const { id } = useParams(); 
-    const packageId = parseInt(id);
+    const { user, isLoggedIn, logout } = useAuth(); 
+    // 💡 Hook de carrito
+    const { addToCart } = useCart();
+    
+    // ESTADOS PARA LA CARGA DE DATOS
+    const [paquete, setPaquete] = useState(null);
+    const [itinerario, setItinerario] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-    // Buscar el paquete por ID
-    const product = TRAVELING_DESTINATION.find(p => p.id === packageId);
+    // Manejador del botón de reserva
+    const handleAddToCart = () => {
+        if (paquete) {
+            addToCart(paquete);
+            alert(`¡El paquete "${paquete.nombre}" ha sido agregado a tus reservas!`);
+        }
+    };
 
-    // Si el producto no existe
-    if (!product) {
+    // EFECTO PARA LA CARGA DE DATOS DEL BACKEND
+    useEffect(() => {
+        if (!isLoggedIn || !user || !user.token) {
+            setLoading(false);
+            logout(); 
+            setError("No autorizado. Redirigiendo al inicio de sesión.");
+            return;
+        }
+
+        const url = `${API_BASE_URL}/paquetes/${id}`; 
+
+        const fetchItinerario = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${user.token}`,
+                    },
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401 || response.status === 403) {
+                        logout(); 
+                        throw new Error(`Acceso denegado. Código de error: ${response.status}. Por favor, inicia sesión de nuevo.`);
+                    }
+                    throw new Error(`Paquete turístico no encontrado (ID: ${id}). Código de error: ${response.status}`);
+                }
+                
+                const data = await response.json(); 
+                
+                setPaquete(data);
+                setItinerario(data.itinerary || []); 
+                
+
+            } catch (err) {
+                console.error("Error al cargar el itinerario:", err);
+                // Si la respuesta es 401 (Acceso denegado), forzamos el error.
+                if (err.message.includes('401')) {
+                    setError('Acceso denegado. Por favor, inicia sesión de nuevo.');
+                } else {
+                    setError(err.message);
+                }
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchItinerario();
+    }, [id, isLoggedIn, user, logout]);
+
+    // RENDERING CONDICIONAL
+    if (loading) {
         return (
             <Container className="text-center mt-5">
-                <h1>Paquete No Encontrado 😞</h1>
-                <p>El paquete turístico con ID: {id} no existe.</p>
+                <Spinner animation="border" role="status" variant="primary" />
+                <p className="mt-2">Cargando itinerario del paquete con ID: {id}...</p>
+            </Container>
+        );
+    }
+    
+    if (error || !paquete) {
+        return (
+            <Container className="text-center mt-5">
+                <Alert variant="danger">
+                    <h1>Paquete No Encontrado o Error 😞</h1>
+                    <p className="lead">{error || `El paquete turístico con ID: ${id} no existe o no se pudo cargar.`}</p>
+                </Alert>
                 <Button as={Link} to="/paquetes" variant="primary">Volver a Paquetes</Button>
             </Container>
         );
     }
 
-    // Preparar el itinerario agrupando las actividades por día
-    const itineraryBydia = product.itinerary ? 
-        product.itinerary.reduce((acc, item) => {
-            (acc[item.dia] = acc[item.dia] || []).push(item.actividad);
-            return acc;
-        }, {}) : {};
+    // Agrupación por día (No se cambia, está bien)
+    const itineraryBydia = itinerario.reduce((acc, item) => {
+        (acc[item.dia] = acc[item.dia] || []).push(item.actividad);
+        return acc;
+    }, {});
 
     return (
         <Container className="my-5">
-            <Button as={Link} to="/paquetes" variant="outline-secondary" className="mb-4">
+            <Button as={Link} to="/paquetes" variant="outline-primary" className="mb-4">
                 ← Volver a la lista
             </Button>
             
-            <h1 className="mb-4">Itinerario de: {product.name} </h1>
+            {/* ENCABEZADO PRINCIPAL */}
+            <h1 className="display-4 fw-bold mb-1">{paquete.nombre} </h1>
+            <p className="lead text-muted mb-5">{paquete.descripcion}</p>
 
-            <Row className="g-4">
+            {/* Fila principal: Se mantiene el layout de dos columnas (4 y 8) */}
+            <Row className="g-5">
+                {/* COLUMNA IZQUIERDA: TARJETA DE RESUMEN (Sticky para seguir el scroll) */}
                 <Col md={4}>
-                    <Card className="shadow-sm">
+                    <Card className="shadow-lg border-0 sticky-top" style={{ top: '20px' }}>
                         <Card.Img 
                             variant="top" 
-                            src={product.imageUrl} 
-                            alt={`Imagen de ${product.name}`}
-                            style={{ objectFit: 'cover', height: 250 }}
+                            src={paquete.imagenUrl} 
+                            alt={`Imagen de ${paquete.nombre}`}
+                            style={{ objectFit: 'cover', height: 200 }}
                         />
                         <Card.Body>
-                            <Card.Title>{product.name}</Card.Title>
-                            <Card.Text>
-                                Precio: ${Number(product.price).toLocaleString('es-CL')} <br/>
-                                Categoria de horas de viaje: {product.category}
+                            {/* Precio más destacado */}
+                            <Card.Title className="text-primary fs-3 fw-bold text-center">
+                                ${Number(paquete.precio).toLocaleString('es-CL')}
+                            </Card.Title>
+                            <hr />
+                            <Card.Text className="mb-2">
+                                <i className="bi bi-clock-fill me-2 text-info"></i> 
+                                Duración: **{paquete.categoria}**
                             </Card.Text>
-                            {/* Aquí se podría agregar un botón para "Agregar a Reservas" pero como no sale añadir esto en la rubrica pues jiji */}
-                            <Button variant="primary" disabled>
-                                Botón hipotetico de nombre "Agregar a Reservas"
+                            <Card.Text className="mb-3">
+                                <i className="bi bi-geo-alt-fill me-2 text-info"></i> 
+                                **{paquete.nombre}**
+                            </Card.Text>
+                            
+                            {/* BOTÓN CON LÓGICA DE CARRITO (YA NO ESTÁ DISABLED) */}
+                            <Button 
+                                variant="success" 
+                                className="w-100 mt-2"
+                                onClick={handleAddToCart}
+                            >
+                                Agregar a Reservas
                             </Button>
                         </Card.Body>
                     </Card>
                 </Col>
                 
-                {/* Aquí se ponen lo que se va a hacer en el dia separado por las filas*/}
+                {/* COLUMNA DERECHA: ITINERARIO DETALLADO */}
                 <Col md={8}>
-                    <h2>Itinerario del viaje</h2>
-                    {product.itinerary && product.itinerary.length > 0 ? (
+                    <h2 className="mb-4 border-bottom pb-2">Itinerario Detallado</h2>
+                    {itinerario && itinerario.length > 0 ? (
                         Object.keys(itineraryBydia).map(dia => (
-                            <Card key={dia} className="mb-3 shadow-sm">
-                                <Card.Header as="h5">Día {dia}</Card.Header>
-                                <ListGroup variant="flush">
+                            <Card key={dia} className="mb-4 shadow-sm border-secondary">
+                                <Card.Header as="h5" className="bg-light text-primary">
+                                    <i className="bi bi-calendar-check me-2"></i> 
+                                    Día {dia}
+                                </Card.Header>
+                                <div className="p-3"> 
                                     {itineraryBydia[dia].map((actividad, index) => (
-                                        <ListGroup.Item key={index}>
-                                            <span className="me-2">-</span> {actividad}
-                                        </ListGroup.Item>
+                                        <ActivityItem key={index} actividad={actividad} />
                                     ))}
-                                </ListGroup>
+                                </div>
                             </Card>
                         ))
                     ) : (
-                        <p className="text-muted">No hay un itinerario disponible para este paquete.</p>
+                        <Alert variant="info">No hay un itinerario detallado disponible para este paquete.</Alert>
                     )}
                 </Col>
             </Row>

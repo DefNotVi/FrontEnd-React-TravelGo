@@ -16,7 +16,7 @@ function Home(){
                 backgroundImage: `url(${backgroundImageUrl})`, 
                 backgroundSize: 'cover', 
                 backgroundPosition: 'center',
-                backgroundAttachment: 'fixed', // Opcional: hace que el fondo sea fijo al hacer scroll
+                backgroundAttachment: 'fixed', // hace que el fondo sea fijo al hacer scroll
                 minHeight: '100vh', // Asegura que el fondo cubra toda la altura de la vista
                 paddingBottom: '2rem'
             }}

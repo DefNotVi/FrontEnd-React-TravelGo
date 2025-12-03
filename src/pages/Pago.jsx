@@ -23,10 +23,12 @@ function Checkout(){
         const data = new FormData(e.currentTarget);
         const name = (data.get('name') || '').trim();
         const email = (data.get('email') || '').trim();
+        const tarjeta = (data.get('tarjeta') || '').trim();
 
         const errs = [];
         if(!name) errs.push('El nombre es obligatorio');
         if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errs.push('El correo es obligatorio y debe ser válido');
+        if(!tarjeta) errs.push('La tarjeta es obligatoria');
        
         //Validación que el carrito no esté vacío
         if (cartCount === 0) {
@@ -97,6 +99,12 @@ function Checkout(){
             {/* Solo muestra el formulario si hay items en el carrito */}
             {cartCount > 0 && (
                 <Form onSubmit={onSubmit} noValidate>
+
+                    <Form.Group className="mb-3" controlId="tarjeta">
+                        <Form.Label>Tarjeta de credito/debito</Form.Label>
+                        <Form.Control type="tarjeta" name="tarjeta" required />
+                    </Form.Group>
+
                     <Form.Group className="mb-3" controlId="name">
                         <Form.Label>Nombre</Form.Label>
                         <Form.Control name="name" required />
