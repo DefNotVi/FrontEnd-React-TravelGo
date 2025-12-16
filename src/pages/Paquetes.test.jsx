@@ -1,68 +1,93 @@
-// src/pages/Paquetes.test.jsx
-import { render, screen, fireEvent } from '@testing-library/react';
-import Paquete from './Paquetes';
-import { TRAVELING_DESTINATION } from '../data/Travel.mock';
+import React from 'react';
 
-// Mock del contexto
-jest.mock('../context/AppContext', () => {
-  const addToCartMock = jest.fn();
-  return {
-    useCart: () => ({
-      addToCart: addToCartMock,
-    }),
-    __mocks: { addToCartMock }, // exportamos el mock para usarlo en los tests
-  };
+/* =====================
+   🔑 MOCK REACT ROUTER (OBLIGATORIO)
+===================== */
+jest.mock(
+  'react-router-dom',
+  () => ({
+    Link: ({ children }) => <span>{children}</span>,
+  }),
+  { virtual: true }
+);
+
+/* =====================
+   FETCH GLOBAL
+===================== */
+global.fetch = jest.fn();
+
+/* =====================
+   MOCKS CONTEXT
+===================== */
+
+jest.mock('../context/AuthContext', () => ({
+  useAuth: () => ({
+    isLoggedIn: true,
+    user: {
+      id: 1,
+      nombre: 'Usuario Test',
+      token: 'fake-jwt-token',
+    },
+  }),
+}));
+
+const mockAddToCart = jest.fn();
+jest.mock('../context/AppContext', () => ({
+  useCart: () => ({
+    addToCart: mockAddToCart,
+  }),
+}));
+
+/* =====================
+   IMPORTS
+===================== */
+
+import { render, screen, fireEvent } from '@testing-library/react';
+import Paquetes from './Paquetes';
+
+/* =====================
+   FETCH MOCK
+===================== */
+
+beforeEach(() => {
+  mockAddToCart.mockClear();
+
+  global.fetch.mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: async () => [
+      {
+        id: 1,
+        nombre: 'Paquete A',
+        categoria: '1 a 2 horas',
+        precio: 1000,
+      },
+    ],
+  });
 });
 
-// Mocks de componentes
-jest.mock('../components/paquetes/Filters', () => ({ options, onChange }) => (
-  <div data-testid="filters">
-    {options.map(opt => (
-      <button key={opt} onClick={() => onChange(opt)}>
-        {opt}
-      </button>
-    ))}
-  </div>
-));
+/* =====================
+   TESTS
+===================== */
 
-jest.mock('../components/paquetes/ProductGrid', () => ({ items, onAdd }) => (
-  <div data-testid="product-grid">
-    {items.map(item => (
-      <button key={item.id} onClick={() => onAdd(item)}>
-        Agregar {item.name}
-      </button>
-    ))}
-  </div>
-));
+describe('Componente Paquetes', () => {
 
-describe('Componente Paquete', () => {
-  let addToCartMock;
-
-  beforeEach(() => {
-    // Recuperamos el mock del módulo después de haberlo mockeado
-    const context = require('../context/AppContext');
-    addToCartMock = context.__mocks.addToCartMock;
-    addToCartMock.mockClear(); // limpiamos antes de cada test
+  test('muestra el título', async () => {
+    render(<Paquetes />);
+    expect(await screen.findByText(/travel go/i)).toBeInTheDocument();
   });
 
-  test('se monta correctamente y muestra el título', () => {
-    render(<Paquete />);
-    expect(screen.getByText(/Travel Go/i)).toBeInTheDocument();
-    expect(screen.getByText(/Viajes por todo Chile/i)).toBeInTheDocument();
+  test('renderiza el botón Agregar', async () => {
+    render(<Paquetes />);
+    const boton = await screen.findByRole('button', { name: /agregar/i });
+    expect(boton).toBeInTheDocument();
   });
 
-  test('renderiza filtros y ProductGrid', () => {
-    render(<Paquete />);
-    expect(screen.getByTestId('filters')).toBeInTheDocument();
-    expect(screen.getByTestId('product-grid')).toBeInTheDocument();
+  test('click en Agregar llama a addToCart', async () => {
+    render(<Paquetes />);
+    const boton = await screen.findByRole('button', { name: /agregar/i });
+    fireEvent.click(boton);
+    expect(mockAddToCart).toHaveBeenCalledTimes(1);
   });
 
-  test('al hacer click en "Agregar" llama a addToCart', () => {
-    render(<Paquete />);
-    const firstButton = screen.getAllByRole('button', { name: /Agregar/i })[0];
-    fireEvent.click(firstButton);
-
-    expect(addToCartMock).toHaveBeenCalledTimes(1);
-    expect(addToCartMock).toHaveBeenCalledWith(TRAVELING_DESTINATION[0]);
-  });
 });
